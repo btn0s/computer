@@ -173,6 +173,12 @@ export async function pollRunCompletion(runId: string): Promise<void> {
     return
   }
 
+  // Don't poll if already in terminal state (e.g., cancelled locally)
+  if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(run.status)) {
+    logger.debug({ runId, status: run.status }, 'Skipping poll - run already in terminal state')
+    return
+  }
+
   const apiKey = run.channelConfig.installation.cursorApiKey
   if (!apiKey) {
     return
@@ -185,6 +191,11 @@ export async function pollRunCompletion(runId: string): Promise<void> {
       pollIntervalMs: 5000,
       timeoutMs: 600000, // 10 minutes
       onStatusChange: async (status) => {
+        // Check if run was cancelled locally during polling
+        const currentRun = await db.run.findUnique({ where: { id: runId } })
+        if (currentRun?.status === RunStatus.CANCELLED) {
+          throw new Error('Run cancelled')
+        }
         logger.debug({ runId, status: status.status }, 'Agent status changed')
       },
     })
@@ -195,6 +206,7 @@ export async function pollRunCompletion(runId: string): Promise<void> {
     if (agent.status === 'FINISHED') status = RunStatus.COMPLETED
     if (agent.status === 'FAILED') status = RunStatus.FAILED
     if (agent.status === 'CANCELLED') status = RunStatus.CANCELLED
+    if (agent.status === 'EXPIRED') status = RunStatus.CANCELLED
 
     await db.run.update({
       where: { id: runId },

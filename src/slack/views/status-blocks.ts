@@ -180,7 +180,8 @@ export function buildRunMessageBlocks(options: RunMessageBlocksOptions): KnownBl
     })
   }
 
-  if (agentId) {
+  const showCursorButtons = agentId && !prUrl
+  if (showCursorButtons) {
     buttons.push({
       type: 'button',
       text: { type: 'plain_text', text: 'Open in Cursor' },

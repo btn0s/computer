@@ -166,7 +166,7 @@ export class CursorClient {
         onStatusChange?.(agent)
       }
 
-      if (['FINISHED', 'FAILED', 'CANCELLED'].includes(agent.status)) {
+      if (['FINISHED', 'FAILED', 'CANCELLED', 'EXPIRED'].includes(agent.status)) {
         for (let retry = 0; retry < 5; retry++) {
           await new Promise((resolve) => setTimeout(resolve, 2000))
           const finalAgent = await this.getAgent(agentId)

@@ -8,6 +8,7 @@ export const AgentStatusSchema = z.enum([
   'FINISHED',
   'FAILED',
   'CANCELLED',
+  'EXPIRED',
 ])
 export type AgentStatus = z.infer<typeof AgentStatusSchema>
 
