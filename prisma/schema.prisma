@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Installation {
+  id            String   @id @default(cuid())
+  
+  // Slack identifiers
+  teamId        String   @unique
+  teamName      String?
+  
+  // Bot credentials
+  botToken      String
+  botId         String
+  botUserId     String
+  
+  // Install metadata
+  installedBy   String
+  installedAt   DateTime @default(now())
+  
+  // User's Cursor API key (they provide this via /computer connect)
+  cursorApiKey  String?
+  
+  channelConfigs ChannelConfig[]
+}
+
+model ChannelConfig {
+  id              String   @id @default(cuid())
+  
+  // Parent installation
+  installationId  String
+  installation    Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  
+  // Channel binding
+  channelId       String
+  
+  // Repo binding
+  repoFullName    String   // e.g., "org/repo"
+  defaultBranch   String   @default("main")
+  
+  // Execution settings
+  modelId         String   @default("auto")
+  dryRunDefault   Boolean  @default(false)
+  
+  // Allowlists (JSON arrays)
+  allowedPaths    Json?    // e.g., ["src/", "docs/"]
+  allowedCommands Json?    // e.g., ["npm test", "npm run build"]
+  
+  // Audit
+  updatedBy       String
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  
+  runs Run[]
+  
+  @@unique([installationId, channelId])
+}
+
+model Run {
+  id              String    @id @default(cuid())
+  
+  // Parent config
+  channelConfigId String
+  channelConfig   ChannelConfig @relation(fields: [channelConfigId], references: [id], onDelete: Cascade)
+  
+  // Slack context
+  threadTs        String?
+  triggeredBy     String
+  
+  // Resolved context (audit snapshot)
+  resolvedRepo    String
+  resolvedBranch  String
+  resolvedModel   String
+  promptText      String   @db.Text
+  
+  // Cursor agent
+  cursorAgentId   String?
+  
+  // Status
+  status          RunStatus @default(PENDING)
+  prUrl           String?
+  error           String?   @db.Text
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  @@index([channelConfigId])
+  @@index([cursorAgentId])
+}
+
+enum RunStatus {
+  PENDING
+  CREATING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
