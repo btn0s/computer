@@ -83,7 +83,9 @@ model Run {
   
   // Status
   status          RunStatus @default(PENDING)
+  targetBranch    String?
   prUrl           String?
+  summary         String?   @db.Text
   error           String?   @db.Text
   
   // Timestamps
