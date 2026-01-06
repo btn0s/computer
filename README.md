@@ -23,6 +23,7 @@ Bind Slack channels to GitHub repos. Mention `@Computer` with a request, and it 
    - `commands`
    - `channels:read`
    - `im:history`
+   - `reactions:write`
 3. Under **Event Subscriptions**, subscribe to:
    - `app_mention`
 4. Under **Slash Commands**, create:
