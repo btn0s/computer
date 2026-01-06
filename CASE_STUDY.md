@@ -2,11 +2,11 @@
 
 ## Problem
 
-Engineering teams want AI agents to handle routine implementation tasks—but context-switching between Slack discussions and separate AI tools creates friction. Cursor's Background Agents API enables autonomous coding, but lacks native team collaboration workflows.
+Cursor's first-party Slack integration is workspace-wide—one repo, one config. Teams working across multiple repositories can't scope agent behavior per channel. Every request requires manually specifying context that the channel already implies.
 
 ## Solution
 
-**Computer** bridges Slack and Cursor Background Agents. Bind a channel to a GitHub repo, mention `@Computer` with a request, and it dispatches an agent to implement and open a PR—all without leaving Slack.
+**Computer** adds per-channel configuration. Bind `#frontend` to one repo, `#backend` to another. Mention `@Computer` and it uses that channel's settings—repo, branch, model—without any inline config.
 
 ## Architecture
 
