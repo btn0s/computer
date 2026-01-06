@@ -1,8 +1,12 @@
+import dotenv from 'dotenv'
 import { z } from 'zod'
+
+// Load .env file, overriding any existing env vars
+dotenv.config({ override: true })
 
 const envSchema = z.object({
   // Database
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string().min(1),
 
   // Slack App
   SLACK_CLIENT_ID: z.string().min(1),
@@ -20,6 +24,9 @@ const envSchema = z.object({
 
   // Mode
   SOCKET_MODE: z.string().default('false').transform((v) => v === 'true'),
+
+  // GitHub (optional - for deployment status polling on private repos)
+  GITHUB_TOKEN: z.string().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>
