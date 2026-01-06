@@ -78,7 +78,6 @@ export function registerSettingsCommand(app: App) {
             ? {
                 repoFullName: existingConfig.repoFullName,
                 defaultBranch: existingConfig.defaultBranch,
-                modelId: existingConfig.modelId,
                 dryRunDefault: existingConfig.dryRunDefault,
               }
             : undefined,
@@ -112,7 +111,6 @@ export function registerSettingsCommand(app: App) {
 
     const repoFullName = view.state.values['repo_block']?.['repo_input']?.value
     const defaultBranch = view.state.values['branch_block']?.['branch_input']?.value || 'main'
-    const modelId = view.state.values['model_block']?.['model_select']?.selected_option?.value || 'auto'
     const dryRunOptions = view.state.values['dryrun_block']?.['dryrun_checkbox']?.selected_options || []
     const dryRunDefault = dryRunOptions.length > 0
 
@@ -148,14 +146,12 @@ export function registerSettingsCommand(app: App) {
           channelId,
           repoFullName,
           defaultBranch,
-          modelId,
           dryRunDefault,
           updatedBy: body.user.id,
         },
         update: {
           repoFullName,
           defaultBranch,
-          modelId,
           dryRunDefault,
           updatedBy: body.user.id,
         },
@@ -163,7 +159,7 @@ export function registerSettingsCommand(app: App) {
 
       await client.chat.postMessage({
         channel: channelId,
-        text: `✅ Channel configured!\n• *Repository:* \`${repoFullName}\`\n• *Branch:* \`${defaultBranch}\`\n• *Model:* \`${modelId}\`\n\nMention \`@Computer\` with your request to get started.`,
+        text: `✅ Channel configured!\n• *Repository:* \`${repoFullName}\`\n• *Branch:* \`${defaultBranch}\`\n\nMention \`@Computer\` with your request to get started.`,
       })
 
       logger.info({ teamId, channelId, repoFullName }, 'Channel config saved')

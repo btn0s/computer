@@ -6,7 +6,6 @@ interface SettingsModalOptions {
   existingConfig?: {
     repoFullName: string
     defaultBranch: string
-    modelId: string
     dryRunDefault: boolean
   }
 }
@@ -80,33 +79,7 @@ export function buildSettingsModal(options: SettingsModalOptions): ModalView {
         },
         optional: true,
       },
-      {
-        type: 'input',
-        block_id: 'model_block',
-        label: {
-          type: 'plain_text',
-          text: 'Model',
-        },
-        element: {
-          type: 'static_select',
-          action_id: 'model_select',
-          placeholder: {
-            type: 'plain_text',
-            text: 'Select a model',
-          },
-          initial_option: {
-            text: { type: 'plain_text', text: existingConfig?.modelId ?? 'auto' },
-            value: existingConfig?.modelId ?? 'auto',
-          },
-          options: [
-            { text: { type: 'plain_text', text: 'auto' }, value: 'auto' },
-            { text: { type: 'plain_text', text: 'claude-4-sonnet' }, value: 'claude-4-sonnet' },
-            { text: { type: 'plain_text', text: 'gpt-4o' }, value: 'gpt-4o' },
-            { text: { type: 'plain_text', text: 'claude-3.5-sonnet' }, value: 'claude-3.5-sonnet' },
-          ],
-        },
-        optional: true,
-      },
+
       {
         type: 'input',
         block_id: 'dryrun_block',
