@@ -35,7 +35,7 @@ export class CursorClient {
     const res = await fetch(url, {
       ...options,
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Basic ${Buffer.from(this.apiKey + ':').toString('base64')}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
@@ -65,24 +65,32 @@ export class CursorClient {
   async launchAgent(params: {
     prompt: string
     repository: string
-    ref: string
+    ref?: string
     model?: string
     autoCreatePr?: boolean
     targetBranch?: string
     webhookUrl?: string
   }): Promise<LaunchAgentResponse> {
-    const body = {
+    const repoUrl = params.repository.startsWith('https://')
+      ? params.repository
+      : `https://github.com/${params.repository}`
+
+    const body: Record<string, unknown> = {
       prompt: { text: params.prompt },
       source: {
-        repository: params.repository,
+        repository: repoUrl,
         ref: params.ref,
       },
       target: {
         autoCreatePr: params.autoCreatePr ?? true,
-        branch: params.targetBranch,
+        branchName: params.targetBranch,
       },
-      model: params.model ?? 'auto',
-      webhook: params.webhookUrl ? { url: params.webhookUrl } : undefined,
+    }
+
+    body['model'] = params.model || 'gpt-5.2-high'
+
+    if (params.webhookUrl) {
+      body['webhook'] = { url: params.webhookUrl }
     }
 
     const data = await this.request<unknown>('/v0/agents', {
@@ -125,9 +133,10 @@ export class CursorClient {
     })
   }
 
-  /**
-   * Cancel a running agent
-   */
+  async getConversation(agentId: string): Promise<{ id: string; messages: Array<{ id: string; type: string; text: string }> }> {
+    return this.request(`/v0/agents/${agentId}/conversation`)
+  }
+
   async cancelAgent(agentId: string): Promise<void> {
     await this.request(`/v0/agents/${agentId}`, {
       method: 'DELETE',
@@ -158,6 +167,13 @@ export class CursorClient {
       }
 
       if (['FINISHED', 'FAILED', 'CANCELLED'].includes(agent.status)) {
+        for (let retry = 0; retry < 5; retry++) {
+          await new Promise((resolve) => setTimeout(resolve, 2000))
+          const finalAgent = await this.getAgent(agentId)
+          if (finalAgent.target?.prUrl || retry === 4) {
+            return finalAgent
+          }
+        }
         return agent
       }
 

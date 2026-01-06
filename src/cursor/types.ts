@@ -46,21 +46,26 @@ export const LaunchAgentRequestSchema = z.object({
 })
 export type LaunchAgentRequest = z.infer<typeof LaunchAgentRequestSchema>
 
+// Target schema (shared)
+const TargetSchema = z.object({
+  branchName: z.string().optional(),
+  url: z.string().optional(),
+  prUrl: z.string().optional(),
+  autoCreatePr: z.boolean().optional(),
+  openAsCursorGithubApp: z.boolean().optional(),
+  skipReviewerRequest: z.boolean().optional(),
+})
+
 // Launch agent response
 export const LaunchAgentResponseSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string().optional(),
   status: AgentStatusSchema,
   source: z.object({
     repository: z.string(),
-    ref: z.string(),
+    ref: z.string().optional(),
   }),
-  target: z
-    .object({
-      branch: z.string().optional(),
-      pullRequestUrl: z.string().optional(),
-    })
-    .optional(),
+  target: TargetSchema.optional(),
   createdAt: z.string(),
 })
 export type LaunchAgentResponse = z.infer<typeof LaunchAgentResponseSchema>
@@ -68,18 +73,14 @@ export type LaunchAgentResponse = z.infer<typeof LaunchAgentResponseSchema>
 // Get agent response
 export const GetAgentResponseSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string().optional(),
   status: AgentStatusSchema,
   source: z.object({
     repository: z.string(),
-    ref: z.string(),
+    ref: z.string().optional(),
   }),
-  target: z
-    .object({
-      branch: z.string().optional(),
-      pullRequestUrl: z.string().optional(),
-    })
-    .optional(),
+  target: TargetSchema.optional(),
+  summary: z.string().optional(),
   createdAt: z.string(),
   finishedAt: z.string().optional(),
 })
