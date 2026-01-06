@@ -28,10 +28,12 @@ export function registerRunControlActions(app: App) {
 
         const blocks = buildRunMessageBlocks({
           runId: run.id,
-          prompt: run.promptText,
+          agentId: run.cursorAgentId,
           repo: run.resolvedRepo,
           branch: run.resolvedBranch,
+          targetBranch: run.targetBranch,
           status: run.status,
+          summary: run.summary,
           prUrl: run.prUrl,
           error: run.error,
         })
@@ -73,10 +75,12 @@ export function registerRunControlActions(app: App) {
 
         const blocks = buildRunMessageBlocks({
           runId: run.id,
-          prompt: run.promptText,
+          agentId: run.cursorAgentId,
           repo: run.resolvedRepo,
           branch: run.resolvedBranch,
+          targetBranch: run.targetBranch,
           status: run.status,
+          summary: run.summary,
         })
 
         await client.chat.update({

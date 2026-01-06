@@ -14,7 +14,7 @@ export interface LaunchRunOptions {
 
 export interface LaunchRunResult {
   runId: string
-  cursorAgentId: string
+  agentId: string
   status: RunStatus
 }
 
@@ -69,7 +69,7 @@ export async function launchRun(options: LaunchRunOptions): Promise<LaunchRunRes
 
     return {
       runId: run.id,
-      cursorAgentId: agent.id,
+      agentId: agent.id,
       status: RunStatus.RUNNING,
     }
   } catch (error) {
@@ -189,8 +189,10 @@ export async function pollRunCompletion(runId: string): Promise<void> {
       },
     })
 
-    // Update run based on final status
+    logger.info({ runId, agent: JSON.stringify(agent) }, 'Agent response from Cursor')
+
     let status: RunStatus = RunStatus.COMPLETED
+    if (agent.status === 'FINISHED') status = RunStatus.COMPLETED
     if (agent.status === 'FAILED') status = RunStatus.FAILED
     if (agent.status === 'CANCELLED') status = RunStatus.CANCELLED
 
@@ -198,12 +200,14 @@ export async function pollRunCompletion(runId: string): Promise<void> {
       where: { id: runId },
       data: {
         status,
-        prUrl: agent.target?.pullRequestUrl,
+        targetBranch: agent.target?.branchName,
+        prUrl: agent.target?.prUrl,
+        summary: agent.summary || null,
         completedAt: new Date(),
       },
     })
 
-    logger.info({ runId, status, prUrl: agent.target?.pullRequestUrl }, 'Run completed')
+    logger.info({ runId, status, targetBranch: agent.target?.branchName, prUrl: agent.target?.prUrl, summary: agent.summary }, 'Run completed')
   } catch (error) {
     logger.error({ error, runId }, 'Failed to poll run completion')
   }

@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger.js'
 import { resolveContext, parseOverrides, ResolverError } from '../../core/resolver.js'
 import { launchRun, pollRunCompletion } from '../../core/orchestrator.js'
 import { buildRunMessageBlocks } from '../views/status-blocks.js'
+import { pollForDeployment } from '../../github/client.js'
 
 export function registerAppMentionHandler(app: App) {
   app.event('app_mention', async ({ event, client, context }) => {
@@ -49,29 +50,26 @@ export function registerAppMentionHandler(app: App) {
       return
     }
 
-    // Post initial acknowledgment
-    const ackMessage = await client.chat.postMessage({
-      channel: channelId,
-      thread_ts: threadTs,
-      text: '🔄 Working on it...',
-    })
-
-    if (!ackMessage.ts) {
-      logger.error('Failed to get message timestamp')
-      return
+    // Add hourglass reaction to the original message immediately
+    try {
+      await client.reactions.add({
+        channel: channelId,
+        timestamp: event.ts,
+        name: 'hourglass_flowing_sand',
+      })
+    } catch {
+      // Ignore if reaction fails
     }
 
-    const messageTs = ackMessage.ts
+    let ackMessage: { ts?: string } | undefined
 
     try {
-      // Resolve context
       const resolvedContext = await resolveContext({
         teamId,
         channelId,
         overrides,
       })
 
-      // Launch run
       const result = await launchRun({
         context: resolvedContext,
         prompt: cleanText,
@@ -79,31 +77,31 @@ export function registerAppMentionHandler(app: App) {
         threadTs,
       })
 
-      // Update message with run details
       const blocks = buildRunMessageBlocks({
         runId: result.runId,
-        prompt: cleanText,
+        agentId: result.agentId,
         repo: resolvedContext.repo,
         branch: resolvedContext.branch,
         status: result.status,
       })
 
-      await client.chat.update({
+      ackMessage = await client.chat.postMessage({
         channel: channelId,
-        ts: messageTs,
+        thread_ts: threadTs,
         blocks,
-        text: `Running: ${cleanText}`, // Fallback
+        text: `Launched an agent. I'll notify here when it's finished.`,
       })
 
-      // Start polling for completion (in background)
-      // This is a fallback in case webhooks don't work
+      if (!ackMessage.ts) {
+        logger.error('Failed to get message timestamp')
+        return
+      }
+
       pollRunCompletion(result.runId).catch((error) => {
         logger.error({ error, runId: result.runId }, 'Background poll failed')
       })
 
-      // Also set up a listener to update the message when the run completes
-      // This will be triggered by the webhook or the polling
-      watchRunCompletion(result.runId, client, channelId, messageTs)
+      watchRunCompletion(result.runId, client, channelId, ackMessage.ts, event.ts)
     } catch (error) {
       let errorMessage = '❌ Something went wrong. Please try again.'
 
@@ -114,26 +112,34 @@ export function registerAppMentionHandler(app: App) {
         errorMessage = `❌ Failed to start: ${error.message}`
       }
 
-      await client.chat.update({
+      await client.chat.postMessage({
         channel: channelId,
-        ts: messageTs,
+        thread_ts: threadTs,
         text: errorMessage,
       })
+
+      try {
+        await client.reactions.remove({
+          channel: channelId,
+          timestamp: event.ts,
+          name: 'hourglass_flowing_sand',
+        })
+      } catch {
+        // Ignore
+      }
     }
   })
 }
 
-/**
- * Watch for run completion and update Slack message
- */
 async function watchRunCompletion(
   runId: string,
   client: WebClient,
   channel: string,
-  messageTs: string
+  messageTs: string,
+  originalMessageTs: string
 ) {
-  const checkInterval = 10000 // 10 seconds
-  const maxChecks = 360 // 1 hour max
+  const checkInterval = 10000
+  const maxChecks = 360
 
   for (let i = 0; i < maxChecks; i++) {
     await new Promise((resolve) => setTimeout(resolve, checkInterval))
@@ -145,14 +151,15 @@ async function watchRunCompletion(
       return
     }
 
-    // Check if terminal state
     if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(run.status)) {
       const blocks = buildRunMessageBlocks({
         runId: run.id,
-        prompt: run.promptText,
+        agentId: run.cursorAgentId,
         repo: run.resolvedRepo,
         branch: run.resolvedBranch,
+        targetBranch: run.targetBranch,
         status: run.status,
+        summary: run.summary,
         prUrl: run.prUrl,
         error: run.error,
       })
@@ -164,6 +171,51 @@ async function watchRunCompletion(
           blocks,
           text: `${run.status}: ${run.promptText}`,
         })
+
+        await client.reactions.remove({
+          channel,
+          timestamp: originalMessageTs,
+          name: 'hourglass_flowing_sand',
+        })
+
+        const doneEmoji = run.status === 'COMPLETED' ? 'white_check_mark' : 'x'
+        await client.reactions.add({
+          channel,
+          timestamp: originalMessageTs,
+          name: doneEmoji,
+        })
+
+        if (run.status === 'COMPLETED' && run.targetBranch) {
+          pollForDeployment(run.resolvedRepo, run.targetBranch, {
+            maxAttempts: 30,
+            intervalMs: 10000,
+          }).then(async (deployment) => {
+            const updatedRun = await db.run.findUnique({ where: { id: runId } })
+            if (!updatedRun) return
+
+            const updatedBlocks = buildRunMessageBlocks({
+              runId: updatedRun.id,
+              agentId: updatedRun.cursorAgentId,
+              repo: updatedRun.resolvedRepo,
+              branch: updatedRun.resolvedBranch,
+              targetBranch: updatedRun.targetBranch,
+              status: updatedRun.status,
+              summary: updatedRun.summary,
+              prUrl: updatedRun.prUrl,
+              deploymentUrl: deployment.state === 'success' ? deployment.targetUrl : null,
+              error: updatedRun.error,
+            })
+
+            await client.chat.update({
+              channel,
+              ts: messageTs,
+              blocks: updatedBlocks,
+              text: `${updatedRun.status}: ${updatedRun.promptText}`,
+            })
+          }).catch((err) => {
+            logger.warn({ err, runId }, 'Failed to poll deployment status')
+          })
+        }
       } catch (error) {
         logger.error({ error, runId }, 'Failed to update Slack message')
       }
