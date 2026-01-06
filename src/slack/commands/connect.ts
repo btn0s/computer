@@ -74,9 +74,17 @@ export function registerConnectCommand(app: App) {
     }
 
     try {
-      await db.installation.update({
+      await db.installation.upsert({
         where: { teamId },
-        data: { cursorApiKey: apiKey },
+        create: {
+          teamId,
+          botToken: '',
+          botId: '',
+          botUserId: '',
+          installedBy: body.user.id,
+          cursorApiKey: apiKey,
+        },
+        update: { cursorApiKey: apiKey },
       })
 
       // DM the user to confirm
