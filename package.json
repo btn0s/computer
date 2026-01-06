@@ -16,9 +16,17 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["slack", "cursor", "ai", "agent", "automation"],
-  "author": "",
+  "keywords": ["slack", "cursor", "ai", "agent", "automation", "background-agents"],
+  "author": "btn0s",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/btn0s/computer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/btn0s/computer/issues"
+  },
+  "homepage": "https://github.com/btn0s/computer#readme",
   "dependencies": {
     "@prisma/client": "^6.2.1",
     "@slack/bolt": "^4.1.0",
